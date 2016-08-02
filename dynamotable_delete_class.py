@@ -35,4 +35,4 @@ class Dynamo_Table():
 
     def delete_table(self):
         if table_state && region_state == True:
-            
+            '''working on this'''
