@@ -1,29 +1,31 @@
 import boto3
 import sys
 
-class Dynamo_Table():
-    self.region = input("> Region? ")
-    self.tablename = input("> Table name? ")
-    self.region.lower()
+region = input("> Region? ")
+tablename = input("> Table name? ")
+region.lower()
 
-    region_state = False
-    tablename_state = False
+class Dynamo(object):
+
     region_name = ['us-east-1', 'us-west-2', 'ap-south-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'eu-central-1', 'eu-west-1', 'sa-east-1']
 
-    def validate_region(self):
-        for n in region_name:
-            if self.region == n:
-                region_state = True
-                return region_state
-            else:
-                region_state = False
+    def __init__(self, region, tablename):
+        self.region = region
+        self.tablename = tablename
 
-    def validate_table(self):
-        if region_state = True:
+    def delete_table(self):
+        print("Checking if region exists...")
+        for n in Dynamo.region_name:
+            if region == n:
+                region_state = True
+                print("We found region: '%s'" % region)
+                break
+
+        if region_state == True:
             client = boto3.client('dynamodb', region_name = '%s' % self.region)
-            print ("Checking if table exists")
+            print ("Checking if table exists...")
             try:
-                description = client.describe_table(TableName = '%s' % tablename_input)
+                description = client.describe_table(TableName = '%s' % self.tablename)
                 table_state = True
                 print('Table exists!')
             except Exception as e:
@@ -33,6 +35,12 @@ class Dynamo_Table():
         else:
             print("Please validate the region before proceeding!")
 
-    def delete_table(self):
-        if table_state && region_state == True:
-            '''working on this'''
+        if region_state == True & table_state == True:
+            print("Deleting Table!")
+            delete_response = client.delete_table(TableName = '%s' % tablename)
+            waiter = client.get_waiter('table_not_exists')
+            if waiter == True:
+                print("Table deleted!")
+
+example = Dynamo('%s' % region, '%s' % tablename)
+example.delete_table()
