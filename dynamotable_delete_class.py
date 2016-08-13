@@ -1,12 +1,15 @@
 import boto3
-import sys
+import botocore
+from datetime import datetime
+import json
+import requests
+
 
 region = input("> Region? ")
 tablename = input("> Table name? ")
 region.lower()
 
 class Dynamo(object):
-
     region_name = ['us-east-1', 'us-west-2', 'ap-south-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'eu-central-1', 'eu-west-1', 'sa-east-1']
 
     def __init__(self, region, tablename):
@@ -14,6 +17,8 @@ class Dynamo(object):
         self.tablename = tablename
 
     def delete_table(self):
+        region_state = False
+        table_state = False
         print("Checking if region exists...")
         for n in Dynamo.region_name:
             if region == n:
@@ -42,5 +47,114 @@ class Dynamo(object):
             if waiter == True:
                 print("Table deleted!")
 
+    def increase_dynamo_read_write(self):
+        client = boto3.client('cloudwatch')
+
+        #namespace_input = input("> Namespace? :  " )
+        #metricname_input = input("> Metric name? : ")
+
+        # call cloudwatch resource
+        response = client.get_metric_statistics(
+            Namespace = 'dynamo_dash', #dynamo_dash
+            MetricName = 'ProvisionedReadCapacityUnits', #ProvisionedReadCapacityUnits
+            StartTime = datetime(2016, 8, 6),
+            EndTime = datetime.utcnow(),
+            Period = 300,
+            Statistics = [
+                'Sum'
+            ],
+            Unit = 'Percent'
+        )
+
+        datapoints = json.loads(response)
+
+        print(response)
+        # ask for namespace?
+        # configure cloudwatch resource for dynamo db table
+        # if read and/or write usage is over 90 percent, increase read and write capacity by 100
+
+    def s3_compare(self):
+        s3 = boto3.resource('s3')
+
+
+        self.compare_dates()
+
+
+        exists = True
+        try:
+            s3.meta.client.head_bucket(Bucket='pc-invoices')
+        except botocore.exceptions.ClientError as e:
+            # If a client error is thrown, then check that it was a 404 error.
+            # If it was a 404 error, then the bucket does not exist.
+            error_code = int(e.response['Error']['Code'])
+            if error_code == 404:
+                exists = False
+
+        if exists == True:
+            
+            for obj in bucket.objects.filter(Prefix='%i/%i/' % (date_year, date_month)):
+                objects.append(obj.key)
+
+            for n in objects:
+                if not '.txt' in n:
+                    objects.pop(objects.index(n))
+
+            for i in objects:
+                link_objects.append(link + i)
+
+            for x in link_objects:
+                f = requests.get(x)
+                text = int(f.text)
+                compare_objects.append(text)
+
+            print("Total monies made %i-%i = " % (date_month, date_year) + str(sum(compare_objects)))
+
+    def sum(self, compare):
+        sum = 0
+        for element in compare:
+            sum+=element
+        print(sum)
+
+    def compare_dates(self):
+        org_date_input = input('> What month would you like to compare?(format in MM-YYYY) : ')
+        date_parse = org_date_input.split("-")
+        org_date_month = int(date_parse[0])
+        org_date_year = int(date_parse[1])
+        prev_date_month = int(date_parse[0]) - 1
+        return(org_date_month, org_date_year, prev_date_month)
+
+    def compare_invoices(self, org_month, prev_month, org_year):
+        s3 = boto3.resource('s3')
+        bucket = s3.Bucket('pc-invoices')
+        objects =[]
+        link_objects = []
+        compare_objects = []
+
+        compare_list = [org_month, prev_month]
+        compare_results = []
+
+        link = 'http://pc-invoices.s3-website-us-west-2.amazonaws.com/'
+
+        for month in compare_list:
+            for obj in bucket.objects.filter(Prefix='%i/%i/' % (org_year, month)):
+                objects.append(obj.key)
+
+            for n in objects:
+                if not '.txt' in n:
+                    objects.pop(objects.index(n))
+
+            for i in objects:
+                link_objects.append(link + i)
+
+            for x in link_objects:
+                f = requests.get(x)
+                text = int(f.text)
+                compare_objects.append(text)
+
+            compare_results.append(sum(compare_objects))
+
+        print()
+
+
 example = Dynamo('%s' % region, '%s' % tablename)
-example.delete_table()
+example.s3_compare()
