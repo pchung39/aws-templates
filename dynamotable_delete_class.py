@@ -76,9 +76,11 @@ class Dynamo(object):
     def s3_compare(self):
         s3 = boto3.resource('s3')
 
-
-        self.compare_dates()
-
+        org_date_input = input('> What month would you like to compare?(format in MM-YYYY) : ')
+        date_parse = org_date_input.split("-")
+        org_date_month = int(date_parse[0])
+        org_date_year = int(date_parse[1])
+        prev_date_month = int(date_parse[0]) - 1
 
         exists = True
         try:
@@ -91,23 +93,7 @@ class Dynamo(object):
                 exists = False
 
         if exists == True:
-            
-            for obj in bucket.objects.filter(Prefix='%i/%i/' % (date_year, date_month)):
-                objects.append(obj.key)
-
-            for n in objects:
-                if not '.txt' in n:
-                    objects.pop(objects.index(n))
-
-            for i in objects:
-                link_objects.append(link + i)
-
-            for x in link_objects:
-                f = requests.get(x)
-                text = int(f.text)
-                compare_objects.append(text)
-
-            print("Total monies made %i-%i = " % (date_month, date_year) + str(sum(compare_objects)))
+            self.compare_invoices(org_date_month, prev_date_month, org_date_year)
 
     def sum(self, compare):
         sum = 0
@@ -115,13 +101,6 @@ class Dynamo(object):
             sum+=element
         print(sum)
 
-    def compare_dates(self):
-        org_date_input = input('> What month would you like to compare?(format in MM-YYYY) : ')
-        date_parse = org_date_input.split("-")
-        org_date_month = int(date_parse[0])
-        org_date_year = int(date_parse[1])
-        prev_date_month = int(date_parse[0]) - 1
-        return(org_date_month, org_date_year, prev_date_month)
 
     def compare_invoices(self, org_month, prev_month, org_year):
         s3 = boto3.resource('s3')
@@ -152,8 +131,12 @@ class Dynamo(object):
                 compare_objects.append(text)
 
             compare_results.append(sum(compare_objects))
+            objects = []
+            link_objects = []
+            compare_objects = []
 
-        print()
+        print("Current Month(%i-%i): " %(org_month, org_year) + str(compare_results[0]) )
+        print("Previous Month(%i-%i): " %(prev_month, org_year) + str(compare_results[1]))
 
 
 example = Dynamo('%s' % region, '%s' % tablename)
