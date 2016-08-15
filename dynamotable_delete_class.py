@@ -9,7 +9,10 @@ region = input("> Region? ")
 tablename = input("> Table name? ")
 region.lower()
 
-class Dynamo(object):
+
+
+
+class AWS_Chain(object):
     region_name = ['us-east-1', 'us-west-2', 'ap-south-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'eu-central-1', 'eu-west-1', 'sa-east-1']
 
     def __init__(self, region, tablename):
@@ -17,6 +20,7 @@ class Dynamo(object):
         self.tablename = tablename
 
     def delete_table(self):
+        client = boto3.client('dynamodb', region_name = '%s' % self.region)
         region_state = False
         table_state = False
         print("Checking if region exists...")
@@ -76,11 +80,7 @@ class Dynamo(object):
     def s3_compare(self):
         s3 = boto3.resource('s3')
 
-        org_date_input = input('> What month would you like to compare?(format in MM-YYYY) : ')
-        date_parse = org_date_input.split("-")
-        org_date_month = int(date_parse[0])
-        org_date_year = int(date_parse[1])
-        prev_date_month = int(date_parse[0]) - 1
+        self.determine_compare_dates()
 
         exists = True
         try:
@@ -93,7 +93,7 @@ class Dynamo(object):
                 exists = False
 
         if exists == True:
-            self.compare_invoices(org_date_month, prev_date_month, org_date_year)
+            self.compare_invoices(self.org_date_month, self.prev_date_month, self.org_date_year, self.prev_date_year)
 
     def sum(self, compare):
         sum = 0
@@ -101,21 +101,41 @@ class Dynamo(object):
             sum+=element
         print(sum)
 
+    def determine_compare_dates(self):
+        org_date_input = input('> What month would you like to compare?(format in MM-YYYY) : ')
+        date_parse = org_date_input.split("-")
 
-    def compare_invoices(self, org_month, prev_month, org_year):
+        self.org_date_month = int(date_parse[0])
+        self.org_date_year = int(date_parse[1])
+        self.prev_date_month = int(date_parse[0]) - 1
+
+        if self.org_date_month == 1:
+            self.prev_date_year = int(self.org_date_year) - 1
+            self.prev_date_month = 12
+        else:
+            self.prev_date_year = int(self.org_date_year)
+
+
+        return(self.org_date_month, self.org_date_year, self.prev_date_month, self.prev_date_year)
+        pass
+
+    def compare_invoices(self, org_month, prev_month, org_year, prev_year):
         s3 = boto3.resource('s3')
         bucket = s3.Bucket('pc-invoices')
+
+        month_compare_list = [org_month, prev_month]
+        year_compare_list = [org_year, prev_year]
+
         objects =[]
         link_objects = []
-        compare_objects = []
-
-        compare_list = [org_month, prev_month]
+        raw_invoice_values = []
         compare_results = []
+        base_link = 'http://pc-invoices.s3-website-us-west-2.amazonaws.com/'
 
-        link = 'http://pc-invoices.s3-website-us-west-2.amazonaws.com/'
 
-        for month in compare_list:
-            for obj in bucket.objects.filter(Prefix='%i/%i/' % (org_year, month)):
+        for month in month_compare_list:
+
+            for obj in bucket.objects.filter(Prefix='%i/%i/' % (year_compare_list[0], month)):
                 objects.append(obj.key)
 
             for n in objects:
@@ -123,21 +143,25 @@ class Dynamo(object):
                     objects.pop(objects.index(n))
 
             for i in objects:
-                link_objects.append(link + i)
+                link_objects.append(base_link + i)
 
             for x in link_objects:
                 f = requests.get(x)
                 text = int(f.text)
-                compare_objects.append(text)
+                raw_invoice_values.append(text)
 
-            compare_results.append(sum(compare_objects))
+            print(objects)
+            print(link_objects)
+            print(raw_invoice_values)
+            compare_results.append(sum(raw_invoice_values))
             objects = []
             link_objects = []
-            compare_objects = []
+            raw_invoice_values = []
+            year_compare_list.pop(0)
 
-        print("Current Month(%i-%i): " %(org_month, org_year) + str(compare_results[0]) )
-        print("Previous Month(%i-%i): " %(prev_month, org_year) + str(compare_results[1]))
+        print("Current Month: " + str(compare_results[0]))
+        print("Previous Month: " + str(compare_results[1]))
 
 
-example = Dynamo('%s' % region, '%s' % tablename)
+example = AWS_Chain('%s' % region, '%s' % tablename)
 example.s3_compare()
